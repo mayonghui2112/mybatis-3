@@ -50,6 +50,7 @@ import org.apache.ibatis.type.TypeHandler;
 
 /**
  * @author Clinton Begin
+ * @author Kazuki Shimizu
  */
 public class XMLMapperBuilder extends BaseBuilder {
 
@@ -90,7 +91,7 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   public void parse() {
     if (!configuration.isResourceLoaded(resource)) {
-      configurationElement(parser.evalNode("/mapper"));
+      configurationElement(parser.evalNode("*[local-name()='mapper']"));
       configuration.addLoadedResource(resource);
       bindMapperForNamespace();
     }
@@ -111,12 +112,12 @@ public class XMLMapperBuilder extends BaseBuilder {
         throw new BuilderException("Mapper's namespace cannot be empty");
       }
       builderAssistant.setCurrentNamespace(namespace);
-      cacheRefElement(context.evalNode("cache-ref"));
-      cacheElement(context.evalNode("cache"));
-      parameterMapElement(context.evalNodes("/mapper/parameterMap"));
-      resultMapElements(context.evalNodes("/mapper/resultMap"));
-      sqlElement(context.evalNodes("/mapper/sql"));
-      buildStatementFromContext(context.evalNodes("select|insert|update|delete"));
+      cacheRefElement(context.evalNode("*[local-name()='cache-ref']"));
+      cacheElement(context.evalNode("*[local-name()='cache']"));
+      parameterMapElement(context.evalNodes("*[local-name()='parameterMap']"));
+      resultMapElements(context.evalNodes("*[local-name()='resultMap']"));
+      sqlElement(context.evalNodes("*[local-name()='sql']"));
+      buildStatementFromContext(context.evalNodes("*[local-name()='select' or local-name()='insert' or local-name()='update' or local-name()='delete']"));
     } catch (Exception e) {
       throw new BuilderException("Error parsing Mapper XML. The XML location is '" + resource + "'. Cause: " + e, e);
     }
@@ -197,7 +198,7 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
-  private void cacheElement(XNode context) throws Exception {
+  private void cacheElement(XNode context) {
     if (context != null) {
       String type = context.getStringAttribute("type", "PERPETUAL");
       Class<? extends Cache> typeClass = typeAliasRegistry.resolveAlias(type);
@@ -212,12 +213,12 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
-  private void parameterMapElement(List<XNode> list) throws Exception {
+  private void parameterMapElement(List<XNode> list) {
     for (XNode parameterMapNode : list) {
       String id = parameterMapNode.getStringAttribute("id");
       String type = parameterMapNode.getStringAttribute("type");
       Class<?> parameterClass = resolveClass(type);
-      List<XNode> parameterNodes = parameterMapNode.evalNodes("parameter");
+      List<XNode> parameterNodes = parameterMapNode.evalNodes("*[local-name()='parameter']");
       List<ParameterMapping> parameterMappings = new ArrayList<>();
       for (XNode parameterNode : parameterNodes) {
         String property = parameterNode.getStringAttribute("property");
@@ -230,8 +231,7 @@ public class XMLMapperBuilder extends BaseBuilder {
         ParameterMode modeEnum = resolveParameterMode(mode);
         Class<?> javaTypeClass = resolveClass(javaType);
         JdbcType jdbcTypeEnum = resolveJdbcType(jdbcType);
-        @SuppressWarnings("unchecked")
-        Class<? extends TypeHandler<?>> typeHandlerClass = (Class<? extends TypeHandler<?>>) resolveClass(typeHandler);
+        Class<? extends TypeHandler<?>> typeHandlerClass = resolveClass(typeHandler);
         ParameterMapping parameterMapping = builderAssistant.buildParameterMapping(parameterClass, property, javaTypeClass, jdbcTypeEnum, resultMap, modeEnum, typeHandlerClass, numericScale);
         parameterMappings.add(parameterMapping);
       }
@@ -324,8 +324,7 @@ public class XMLMapperBuilder extends BaseBuilder {
     String jdbcType = context.getStringAttribute("jdbcType");
     String typeHandler = context.getStringAttribute("typeHandler");
     Class<?> javaTypeClass = resolveClass(javaType);
-    @SuppressWarnings("unchecked")
-    Class<? extends TypeHandler<?>> typeHandlerClass = (Class<? extends TypeHandler<?>>) resolveClass(typeHandler);
+    Class<? extends TypeHandler<?>> typeHandlerClass = resolveClass(typeHandler);
     JdbcType jdbcTypeEnum = resolveJdbcType(jdbcType);
     Map<String, String> discriminatorMap = new HashMap<>();
     for (XNode caseChild : context.getChildren()) {
@@ -336,14 +335,14 @@ public class XMLMapperBuilder extends BaseBuilder {
     return builderAssistant.buildDiscriminator(resultType, column, javaTypeClass, jdbcTypeEnum, typeHandlerClass, discriminatorMap);
   }
 
-  private void sqlElement(List<XNode> list) throws Exception {
+  private void sqlElement(List<XNode> list) {
     if (configuration.getDatabaseId() != null) {
       sqlElement(list, configuration.getDatabaseId());
     }
     sqlElement(list, null);
   }
 
-  private void sqlElement(List<XNode> list, String requiredDatabaseId) throws Exception {
+  private void sqlElement(List<XNode> list, String requiredDatabaseId) {
     for (XNode context : list) {
       String databaseId = context.getStringAttribute("databaseId");
       String id = context.getStringAttribute("id");
@@ -394,8 +393,7 @@ public class XMLMapperBuilder extends BaseBuilder {
     String foreignColumn = context.getStringAttribute("foreignColumn");
     boolean lazy = "lazy".equals(context.getStringAttribute("fetchType", configuration.isLazyLoadingEnabled() ? "lazy" : "eager"));
     Class<?> javaTypeClass = resolveClass(javaType);
-    @SuppressWarnings("unchecked")
-    Class<? extends TypeHandler<?>> typeHandlerClass = (Class<? extends TypeHandler<?>>) resolveClass(typeHandler);
+    Class<? extends TypeHandler<?>> typeHandlerClass = resolveClass(typeHandler);
     JdbcType jdbcTypeEnum = resolveJdbcType(jdbcType);
     return builderAssistant.buildResultMapping(resultType, property, column, javaTypeClass, jdbcTypeEnum, nestedSelect, nestedResultMap, notNullColumn, columnPrefix, typeHandlerClass, flags, resultSet, foreignColumn, lazy);
   }
